@@ -9,6 +9,7 @@ import {
 } from 'react-brackets';
 import { memo, useCallback, useMemo } from 'react';
 import type { GuildWarBracket, GuildWarBracketMatch } from '../types';
+import victorIcon from '../assets/victor.svg';
 
 interface BracketViewProps {
 	bracket: GuildWarBracket;
@@ -77,7 +78,7 @@ function BracketViewComponent({ bracket }: BracketViewProps) {
 		<div className="bracket-container">
 			{champion && (
 				<div className="bracket-champion">
-					<span className="champion-icon">👑</span>
+					<img className="champion-icon" src={victorIcon} alt="Champion icon" />
 					<span className="champion-name">{champion}</span>
 				</div>
 			)}

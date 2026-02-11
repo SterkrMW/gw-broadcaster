@@ -121,6 +121,19 @@ body {
 	margin: 0;
 }
 
+.app-title {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.app-title-icon {
+	width: 1.5rem;
+	height: 1.5rem;
+	display: block;
+	object-fit: contain;
+}
+
 .connection-status {
 	display: flex;
 	align-items: center;
@@ -703,7 +716,10 @@ body {
 }
 
 .champion-icon {
-	font-size: 1.5rem;
+	width: 1.5rem;
+	height: 1.5rem;
+	display: block;
+	object-fit: contain;
 }
 
 .champion-name {

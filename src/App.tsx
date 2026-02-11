@@ -7,6 +7,7 @@ import { InstanceSelector } from './components/InstanceSelector';
 import { BracketView } from './components/BracketView';
 import { ActionFeed } from './components/ActionFeed';
 import type { BattlegroundState } from './types';
+import warIcon from './assets/war.svg';
 import './App.css';
 
 // Configuration - in production, load from environment
@@ -63,7 +64,10 @@ function App() {
       {isLiveView && (
         <header className="app-header">
           <div className="header-left">
-            <h1>⚔️ Guild War Live</h1>
+            <h1 className="app-title">
+              <img className="app-title-icon" src={warIcon} alt="" aria-hidden="true" />
+              <span>Guild War Live</span>
+            </h1>
             <div className="connection-status">
               <span className={`status-dot ${isConnected ? 'connected' : 'disconnected'}`} />
               {isConnected ? 'Connected' : 'Disconnected'}
