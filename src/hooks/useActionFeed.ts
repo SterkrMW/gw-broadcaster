@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { BattlegroundState, PlayerState } from '../types';
 
-type ActionSeverity = 'score' | 'combat' | 'objective' | 'system';
+type ActionSeverity = 'score' | 'combat' | 'system';
 
 export interface ActionFeedEntry {
   id: string;
-  timestamp: number;
   text: string;
   severity: ActionSeverity;
 }
@@ -22,6 +21,70 @@ function formatScoreDelta(delta: number): string {
   return delta > 1 ? `+${delta} points` : '+1 point';
 }
 
+function getTeamStatueName(team: PlayerState['team']): string {
+  return team === 'red' ? 'Red Statue' : 'Blue Statue';
+}
+
+interface Engagement {
+  playerAId: number;
+  playerBId: number;
+  playerAName: string;
+  playerBName: string;
+}
+
+function buildEngagements(players: PlayerState[]): Map<string, Engagement> {
+  const playerLookup = buildPlayerLookup(players);
+  const engagements = new Map<string, Engagement>();
+
+  for (const player of players) {
+    if (!player.inCombat || player.combatTargetId === null) continue;
+    const target = playerLookup.get(player.combatTargetId);
+    if (!target) continue;
+
+    const [playerAId, playerBId] = player.id < target.id ? [player.id, target.id] : [target.id, player.id];
+    const key = `${playerAId}-${playerBId}`;
+    if (engagements.has(key)) continue;
+
+    const playerA = playerLookup.get(playerAId);
+    const playerB = playerLookup.get(playerBId);
+    if (!playerA || !playerB) continue;
+
+    engagements.set(key, {
+      playerAId,
+      playerBId,
+      playerAName: playerA.name,
+      playerBName: playerB.name,
+    });
+  }
+
+  return engagements;
+}
+
+function inferEngagementResult(
+  engagement: Engagement,
+  currentPlayers: Map<number, PlayerState>
+): { winner: string; loser: string } | null {
+  const playerA = currentPlayers.get(engagement.playerAId);
+  const playerB = currentPlayers.get(engagement.playerBId);
+
+  if (!playerA && playerB) {
+    return { winner: engagement.playerBName, loser: engagement.playerAName };
+  }
+  if (!playerB && playerA) {
+    return { winner: engagement.playerAName, loser: engagement.playerBName };
+  }
+  if (!playerA || !playerB) return null;
+
+  if (playerA.inCombat && !playerB.inCombat) {
+    return { winner: engagement.playerAName, loser: engagement.playerBName };
+  }
+  if (playerB.inCombat && !playerA.inCombat) {
+    return { winner: engagement.playerBName, loser: engagement.playerAName };
+  }
+
+  return null;
+}
+
 export function useActionFeed(
   selectedInstance: BattlegroundState | undefined,
   options: UseActionFeedOptions = {}
@@ -34,18 +97,17 @@ export function useActionFeed(
   useEffect(() => {
     if (!selectedInstance) {
       previousInstanceRef.current = null;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEntries([]);
       return;
     }
 
-    const now = Date.now();
     const previous = previousInstanceRef.current;
     const nextEntries: ActionFeedEntry[] = [];
     const createEntry = (text: string, severity: ActionSeverity) => {
       sequenceRef.current += 1;
       nextEntries.push({
         id: `${selectedInstance.roundId}-${selectedInstance.timeRemainingMs}-${sequenceRef.current}`,
-        timestamp: now,
         text,
         severity,
       });
@@ -55,8 +117,7 @@ export function useActionFeed(
       setEntries([
         {
           id: `${selectedInstance.roundId}-round-start`,
-          timestamp: now,
-          text: `Now tracking ${selectedInstance.roundName}: ${selectedInstance.guild1.name} vs ${selectedInstance.guild2.name}.`,
+          text: `${selectedInstance.roundName}: ${selectedInstance.guild1.name} vs ${selectedInstance.guild2.name}`,
           severity: 'system',
         },
       ]);
@@ -68,68 +129,46 @@ export function useActionFeed(
     const guild2Delta = selectedInstance.guild2.score - previous.guild2.score;
     if (guild1Delta > 0) {
       createEntry(
-        `${selectedInstance.guild1.name} score ${formatScoreDelta(guild1Delta)} (total ${selectedInstance.guild1.score}).`,
+        `${selectedInstance.guild1.name} score ${formatScoreDelta(guild1Delta)} (total ${selectedInstance.guild1.score})`,
         'score'
       );
     }
     if (guild2Delta > 0) {
       createEntry(
-        `${selectedInstance.guild2.name} score ${formatScoreDelta(guild2Delta)} (total ${selectedInstance.guild2.score}).`,
+        `${selectedInstance.guild2.name} score ${formatScoreDelta(guild2Delta)} (total ${selectedInstance.guild2.score})`,
         'score'
       );
     }
 
     const previousPlayers = buildPlayerLookup(previous.players);
     const currentPlayers = buildPlayerLookup(selectedInstance.players);
+    const previousEngagements = buildEngagements(previous.players);
+    const currentEngagements = buildEngagements(selectedInstance.players);
 
     for (const player of selectedInstance.players) {
       const prior = previousPlayers.get(player.id);
-      if (!prior) {
-        createEntry(`${player.name} enters the battlefield for ${player.team}.`, 'system');
-        continue;
-      }
-
-      if (!prior.inCombat && player.inCombat) {
-        const targetName = player.combatTargetId
-          ? currentPlayers.get(player.combatTargetId)?.name ?? 'an opponent'
-          : 'an opponent';
-        createEntry(`${player.name} engages ${targetName}.`, 'combat');
-      }
-
-      if (prior.inCombat && !player.inCombat) {
-        createEntry(`${player.name} disengages from combat.`, 'combat');
-      }
-
-      if (
-        player.inCombat &&
-        prior.combatTargetId !== player.combatTargetId &&
-        player.combatTargetId !== null
-      ) {
-        const targetName = currentPlayers.get(player.combatTargetId)?.name ?? 'an opponent';
-        createEntry(`${player.name} switches target to ${targetName}.`, 'combat');
-      }
+      if (!prior) continue;
 
       if (!prior.isPendingScore && player.isPendingScore) {
-        createEntry(`${player.name} starts channeling at a score objective.`, 'objective');
+        createEntry(`${player.name} is scoring the flag`, 'score');
       }
 
       if (!prior.isScored && player.isScored) {
-        createEntry(`${player.name} secures a scoring objective.`, 'objective');
-      }
-
-      if (prior.partySize !== player.partySize) {
-        if (player.partySize > prior.partySize) {
-          createEntry(`${player.name}'s party grows to ${player.partySize}.`, 'system');
-        } else {
-          createEntry(`${player.name}'s party shrinks to ${player.partySize}.`, 'system');
-        }
+        createEntry(`${player.name} is returning to ${getTeamStatueName(player.team)}`, 'score');
       }
     }
 
-    for (const prior of previous.players) {
-      if (!currentPlayers.has(prior.id)) {
-        createEntry(`${prior.name} leaves the battleground.`, 'system');
+    for (const [engagementKey, engagement] of currentEngagements) {
+      if (!previousEngagements.has(engagementKey)) {
+        createEntry(`${engagement.playerAName} engages ${engagement.playerBName}`, 'combat');
       }
+    }
+
+    for (const [engagementKey, engagement] of previousEngagements) {
+      if (currentEngagements.has(engagementKey)) continue;
+      const result = inferEngagementResult(engagement, currentPlayers);
+      if (!result) continue;
+      createEntry(`${result.winner} defeats ${result.loser}`, 'combat');
     }
 
     if (nextEntries.length > 0) {

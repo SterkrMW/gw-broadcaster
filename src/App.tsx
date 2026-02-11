@@ -49,7 +49,7 @@ function App() {
     [instances, effectiveRoundId]
   );
   const isLiveView = Boolean(selectedInstance);
-  const actionFeedEntries = useActionFeed(selectedInstance, { maxEntries: 16 });
+  const actionFeedEntries = useActionFeed(selectedInstance, { maxEntries: 3 });
 
   // Map dimensions from server
   const mapWidth = welcome?.mapDimensions.width ?? 4800;
