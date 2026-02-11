@@ -516,6 +516,12 @@ body {
 	}
 }
 
+@media (max-width: 768px) and (orientation: portrait) {
+	.timer {
+		padding-inline: 0.45rem;
+	}
+}
+
 /* Mobile Landscape Optimization */
 /* Targets virtually all phones and tablets in landscape (up to iPad Pro 12.9) */
 @media (max-width: 1366px) and (orientation: landscape) {
