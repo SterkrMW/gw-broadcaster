@@ -1,9 +1,15 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import type { Duplex } from 'stream';
 import { randomBytes } from 'crypto';
+import { fileURLToPath } from 'url';
 import { WebSocketServer, type WebSocket } from 'ws';
 import * as fs from 'fs';
 import * as path from 'path';
+
+// Node 18 compat: import.meta.dirname was added in Node 20.11
+const __serverDir = typeof import.meta.dirname === 'string'
+	? import.meta.dirname
+	: path.dirname(fileURLToPath(import.meta.url));
 
 // ============================================================================
 // Configuration
@@ -60,11 +66,15 @@ interface SessionTokenState {
 	expiresAt: number;
 }
 
+interface ErrorPayload {
+	error: string;
+}
+
 // ============================================================================
 // Load Config
 // ============================================================================
 
-const configPath = path.join(import.meta.dirname, 'server.config.json');
+const configPath = path.join(__serverDir, 'server.config.json');
 if (!fs.existsSync(configPath)) {
 	console.error(`Config file not found: ${configPath}`);
 	process.exit(1);
@@ -78,7 +88,7 @@ const listenHost = config.host ?? '0.0.0.0';
 // State Management
 // ============================================================================
 
-const stateFilePath = path.resolve(import.meta.dirname, config.stateFilePath);
+const stateFilePath = path.resolve(__serverDir, config.stateFilePath);
 const clients = new Map<WebSocket, ClientConnection>();
 const ipConnectionCounts = new Map<string, number>();
 const sessionTokens = new Map<string, SessionTokenState>();
@@ -144,6 +154,13 @@ function setCorsHeaders(res: ServerResponse, originHeader: string | undefined): 
 	res.setHeader('Vary', 'Origin');
 	res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
 	res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
+function sendJson(res: ServerResponse, statusCode: number, payload: unknown): void {
+	res.statusCode = statusCode;
+	res.setHeader('Content-Type', 'application/json');
+	res.setHeader('Cache-Control', 'no-store');
+	res.end(JSON.stringify(payload));
 }
 
 function cleanExpiredSessionTokens(): void {
@@ -213,8 +230,8 @@ const httpServer = createServer((req, res) => {
 	const requestUrl = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
 	if (method === 'GET' && requestUrl.pathname === '/session-token') {
 		if (!isOriginAllowed(originHeader)) {
-			res.statusCode = 403;
-			res.end('Origin not allowed');
+			const response: ErrorPayload = { error: 'Origin not allowed' };
+			sendJson(res, 403, response);
 			return;
 		}
 
@@ -229,15 +246,12 @@ const httpServer = createServer((req, res) => {
 		cleanExpiredSessionTokens();
 
 		const response: SessionTokenPayload = { token, expiresAt };
-		res.statusCode = 200;
-		res.setHeader('Content-Type', 'application/json');
-		res.setHeader('Cache-Control', 'no-store');
-		res.end(JSON.stringify(response));
+		sendJson(res, 200, response);
 		return;
 	}
 
-	res.statusCode = 404;
-	res.end('Not Found');
+	const response: ErrorPayload = { error: 'Not Found' };
+	sendJson(res, 404, response);
 });
 
 const wss = new WebSocketServer({ noServer: true });

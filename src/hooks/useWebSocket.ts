@@ -47,6 +47,19 @@ function isSessionTokenPayload(value: unknown): value is { token: string; expire
 	return true;
 }
 
+async function parseJsonResponse(response: Response, endpoint: string): Promise<unknown> {
+	const rawBody = await response.text();
+	try {
+		return JSON.parse(rawBody) as unknown;
+	} catch {
+		const contentType = response.headers.get('content-type') ?? 'unknown';
+		const snippet = rawBody.slice(0, 120).replace(/\s+/g, ' ');
+		throw new Error(
+			`Session endpoint returned non-JSON (status ${response.status}, content-type: ${contentType}, body: "${snippet}") at ${endpoint}`
+		);
+	}
+}
+
 function buildSessionTokenUrl(wsUrl: URL): URL {
 	const sessionUrl = new URL(wsUrl.toString());
 	sessionUrl.protocol = sessionUrl.protocol === 'wss:' ? 'https:' : 'http:';
@@ -133,10 +146,16 @@ export function useWebSocket({ url, reconnectIntervalMs = 5000 }: UseWebSocketOp
 			signal: abortController.signal,
 		})
 			.then(async response => {
+				const parsedBody = await parseJsonResponse(response, sessionTokenUrl.toString());
 				if (!response.ok) {
+					if (isObject(parsedBody) && typeof parsedBody.error === 'string') {
+						throw new Error(
+							`Session token request failed (${response.status}): ${parsedBody.error}`
+						);
+					}
 					throw new Error(`Session token request failed (${response.status})`);
 				}
-				return response.json() as Promise<unknown>;
+				return parsedBody;
 			})
 			.then(payload => {
 				if (!isSessionTokenPayload(payload)) {

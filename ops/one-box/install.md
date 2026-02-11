@@ -90,6 +90,10 @@ sudo systemctl reload caddy
 sudo systemctl status caddy --no-pager
 ```
 
+Important:
+- Ensure `/session-token` and `/ws*` use `handle` (not `handle_path`) in Caddy.
+- `handle_path` strips the path prefix, which causes `/session-token` to proxy as `/` and break JSON session bootstrap.
+
 ## 6) Configure systemd service for broadcast server
 
 ```bash

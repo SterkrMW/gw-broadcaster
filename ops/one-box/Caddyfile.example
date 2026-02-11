@@ -5,13 +5,14 @@ viewer.example.com {
 	root * /var/www/gw-broadcast-viewer/dist
 	file_server
 
-	# Session bootstrap endpoint used by browser before websocket connect
-	handle_path /session-token {
+	# Session bootstrap endpoint used by browser before websocket connect.
+	# Use `handle`, not `handle_path`, so upstream still receives `/session-token`.
+	handle /session-token {
 		reverse_proxy 127.0.0.1:8081
 	}
 
 	# Websocket endpoint used by viewer (`VITE_WS_URL=wss://viewer.example.com/ws`)
-	handle_path /ws* {
+	handle /ws* {
 		reverse_proxy 127.0.0.1:8081
 	}
 
