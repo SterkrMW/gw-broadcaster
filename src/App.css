@@ -621,7 +621,19 @@ body {
 
 @media (max-width: 768px) {
 	.action-feed {
-		display: none;
+		right: 0.5rem;
+		left: 0.5rem;
+		bottom: 0.5rem;
+		width: auto;
+		max-height: min(36vh, 210px);
+	}
+
+	.action-feed-item {
+		font-size: 0.74rem;
+	}
+
+	.action-feed-time {
+		font-size: 0.7rem;
 	}
 }
 
