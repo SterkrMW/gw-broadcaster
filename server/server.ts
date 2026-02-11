@@ -304,22 +304,30 @@ function rejectUpgrade(socket: Duplex, status: number, message: string): void {
 
 httpServer.on('upgrade', (req, socket, head) => {
 	const originHeader = typeof req.headers.origin === 'string' ? req.headers.origin : undefined;
+	const hostHeader = typeof req.headers.host === 'string' ? req.headers.host : 'unknown';
+	const requestPath = req.url ?? '/';
+	const ip = getClientIp(req);
 	if (!isOriginAllowed(originHeader)) {
-		console.warn(`Rejected origin: ${originHeader ?? 'none'}`);
+		console.warn(
+			`Rejected websocket origin: origin=${originHeader ?? 'none'} host=${hostHeader} path=${requestPath} ip=${ip}`
+		);
 		rejectUpgrade(socket, 403, 'Origin not allowed');
 		return;
 	}
 
 	if (clients.size >= config.maxTotalConnections) {
-		console.warn(`Rejected: server at capacity (${clients.size}/${config.maxTotalConnections})`);
+		console.warn(
+			`Rejected websocket (capacity): host=${hostHeader} path=${requestPath} ip=${ip} total=${clients.size}/${config.maxTotalConnections}`
+		);
 		rejectUpgrade(socket, 503, 'Server at capacity');
 		return;
 	}
 
-	const ip = getClientIp(req);
 	const currentCount = ipConnectionCounts.get(ip) ?? 0;
 	if (currentCount >= config.maxConnectionsPerIp) {
-		console.warn(`Rejected: IP rate limit for ${ip}`);
+		console.warn(
+			`Rejected websocket (ip limit): host=${hostHeader} path=${requestPath} ip=${ip} count=${currentCount}/${config.maxConnectionsPerIp}`
+		);
 		rejectUpgrade(socket, 429, 'Too many connections');
 		return;
 	}
@@ -328,33 +336,43 @@ httpServer.on('upgrade', (req, socket, head) => {
 	try {
 		requestUrl = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
 	} catch {
+		console.warn(`Rejected websocket (bad request URL): host=${hostHeader} path=${requestPath} ip=${ip}`);
 		rejectUpgrade(socket, 400, 'Bad request');
 		return;
 	}
 
 	const sessionToken = requestUrl.searchParams.get('sessionToken');
 	if (!sessionToken) {
+		console.warn(`Rejected websocket (missing token): host=${hostHeader} path=${requestPath} ip=${ip}`);
 		rejectUpgrade(socket, 401, 'Missing session token');
 		return;
 	}
 
 	const session = sessionTokens.get(sessionToken);
 	if (!session) {
+		console.warn(`Rejected websocket (invalid token): host=${hostHeader} path=${requestPath} ip=${ip}`);
 		rejectUpgrade(socket, 401, 'Invalid session token');
 		return;
 	}
 	if (session.expiresAt <= Date.now()) {
 		sessionTokens.delete(sessionToken);
+		console.warn(`Rejected websocket (expired token): host=${hostHeader} path=${requestPath} ip=${ip}`);
 		rejectUpgrade(socket, 401, 'Session token expired');
 		return;
 	}
 	if (session.ip !== ip) {
 		sessionTokens.delete(sessionToken);
+		console.warn(
+			`Rejected websocket (ip mismatch): host=${hostHeader} path=${requestPath} tokenIp=${session.ip} requestIp=${ip}`
+		);
 		rejectUpgrade(socket, 401, 'Session token mismatch');
 		return;
 	}
 	if (session.origin && originHeader && session.origin !== originHeader) {
 		sessionTokens.delete(sessionToken);
+		console.warn(
+			`Rejected websocket (origin mismatch): host=${hostHeader} path=${requestPath} tokenOrigin=${session.origin} requestOrigin=${originHeader}`
+		);
 		rejectUpgrade(socket, 401, 'Session token origin mismatch');
 		return;
 	}
