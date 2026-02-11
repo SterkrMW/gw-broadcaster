@@ -701,8 +701,10 @@ body {
 
 .bracket-champion {
 	display: flex;
+	flex-direction: column;
 	align-items: center;
-	gap: 0.75rem;
+	justify-content: center;
+	gap: 0.35rem;
 	padding: 0.75rem 2rem;
 	background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 180, 0, 0.08));
 	border: 1px solid rgba(255, 215, 0, 0.4);
@@ -716,8 +718,8 @@ body {
 }
 
 .champion-icon {
-	width: 1.5rem;
-	height: 1.5rem;
+	width: 2.4rem;
+	height: 2.4rem;
 	display: block;
 	object-fit: contain;
 }
