@@ -21,6 +21,8 @@ interface ServerConfig {
 	allowedOrigins: string[];
 	allowSameHostDifferentPort?: boolean;
 	stateFilePath: string;
+	ingestApiKey?: string;
+	ingestMaxBodyBytes?: number;
 	pollIntervalMs: number;
 	maxConnectionsPerIp: number;
 	maxTotalConnections: number;
@@ -82,6 +84,8 @@ if (!fs.existsSync(configPath)) {
 
 const config: ServerConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 const sessionTokenTtlMs = Math.max(5000, config.sessionTokenTtlMs ?? 30_000);
+const ingestApiKey = config.ingestApiKey?.trim() || '';
+const ingestMaxBodyBytes = Math.max(1024, config.ingestMaxBodyBytes ?? 2_000_000);
 const listenHost = config.host ?? '0.0.0.0';
 
 // ============================================================================
@@ -204,6 +208,24 @@ function sendJson(res: ServerResponse, statusCode: number, payload: unknown): vo
 	res.end(JSON.stringify(payload));
 }
 
+function getBearerToken(authorizationHeader: string | undefined): string | null {
+	if (!authorizationHeader) return null;
+	const [scheme, token] = authorizationHeader.split(' ');
+	if (scheme?.toLowerCase() !== 'bearer' || !token) return null;
+	return token;
+}
+
+function writeStateFile(stateJson: string): void {
+	const tmpPath = `${stateFilePath}.tmp`;
+	try {
+		fs.writeFileSync(tmpPath, stateJson);
+		fs.renameSync(tmpPath, stateFilePath);
+	} catch (error) {
+		console.warn('Failed atomic state write, falling back to direct overwrite:', error);
+		fs.writeFileSync(stateFilePath, stateJson);
+	}
+}
+
 function cleanExpiredSessionTokens(): void {
 	const now = Date.now();
 	for (const [token, value] of sessionTokens) {
@@ -237,6 +259,62 @@ function pollStateFile(): void {
 	} catch {
 		// File may be mid-write, skip this poll
 	}
+}
+
+function ingestStateRequest(req: IncomingMessage, res: ServerResponse): void {
+	if (!ingestApiKey) {
+		sendJson(res, 403, { error: 'Ingest endpoint disabled' });
+		return;
+	}
+
+	const authorizationHeader =
+		typeof req.headers.authorization === 'string' ? req.headers.authorization : undefined;
+	const bearerToken = getBearerToken(authorizationHeader);
+	if (!bearerToken || bearerToken !== ingestApiKey) {
+		sendJson(res, 401, { error: 'Unauthorized' });
+		return;
+	}
+
+	const chunks: Buffer[] = [];
+	let totalBytes = 0;
+	req.on('data', chunk => {
+		const bufferChunk = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+		totalBytes += bufferChunk.length;
+		if (totalBytes > ingestMaxBodyBytes) {
+			sendJson(res, 413, { error: 'Payload too large' });
+			req.destroy();
+			return;
+		}
+		chunks.push(bufferChunk);
+	});
+
+	req.on('end', () => {
+		try {
+			const bodyText = Buffer.concat(chunks).toString('utf-8');
+			const parsed: unknown = JSON.parse(bodyText);
+			if (!isValidBroadcastPayload(parsed)) {
+				sendJson(res, 400, { error: 'Invalid broadcast payload shape' });
+				return;
+			}
+
+			const normalized = JSON.stringify(parsed);
+			writeStateFile(normalized);
+			lastTimestamp = parsed.timestamp;
+			lastState = normalized;
+			broadcastToClients(normalized);
+			sendJson(res, 200, { ok: true });
+		} catch (error) {
+			console.warn('Failed to ingest state payload:', error);
+			sendJson(res, 400, { error: 'Invalid JSON payload' });
+		}
+	});
+
+	req.on('error', error => {
+		console.warn('Error receiving ingest payload:', error);
+		if (!res.writableEnded) {
+			sendJson(res, 400, { error: 'Failed to read request body' });
+		}
+	});
 }
 
 // ============================================================================
@@ -298,6 +376,11 @@ const httpServer = createServer((req, res) => {
 
 		const response: SessionTokenPayload = { token, expiresAt };
 		sendJson(res, 200, response);
+		return;
+	}
+
+	if (method === 'POST' && requestUrl.pathname === '/ingest-state') {
+		ingestStateRequest(req, res);
 		return;
 	}
 
@@ -500,3 +583,4 @@ console.log(`Listening host: ${listenHost}`);
 console.log(`Reading state from: ${stateFilePath}`);
 console.log(`Poll interval: ${config.pollIntervalMs}ms`);
 console.log(`Session token TTL: ${sessionTokenTtlMs}ms`);
+console.log(`Ingest endpoint: ${ingestApiKey ? 'enabled' : 'disabled'}`);

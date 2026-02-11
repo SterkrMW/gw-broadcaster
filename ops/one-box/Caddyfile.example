@@ -10,6 +10,11 @@ viewer.example.com {
 			reverse_proxy 127.0.0.1:8081
 		}
 
+		# State ingest endpoint used by the game server (server-to-server push).
+		handle /ingest-state {
+			reverse_proxy 127.0.0.1:8081
+		}
+
 		# Websocket endpoint used by viewer (`VITE_WS_URL=wss://viewer.example.com/ws`)
 		handle /ws* {
 			reverse_proxy 127.0.0.1:8081

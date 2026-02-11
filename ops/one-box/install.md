@@ -58,6 +58,7 @@ cp server/server.config.production.example.json server/server.config.json
 Edit `server/server.config.json`:
 - `allowedOrigins`: set to `https://viewer.example.com`
 - `stateFilePath`: verify location
+- `ingestApiKey`: set a strong random token (used by game server POST auth)
 - `trustProxy`: keep `true` (Caddy is in front)
 - keep `host` as `127.0.0.1`
 
@@ -140,6 +141,9 @@ From browser:
 - `https://viewer.example.com/session-token` returns JSON
 - websocket connects via `wss://viewer.example.com/ws`
 - no CORS or mixed-content errors in browser console
+
+From game server:
+- `POST https://viewer.example.com/ingest-state` with `Authorization: Bearer <ingestApiKey>` returns `{"ok":true}`
 
 From server:
 - `sudo systemctl status caddy`

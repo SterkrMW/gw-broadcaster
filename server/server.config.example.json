@@ -6,6 +6,8 @@
 	],
 	"allowSameHostDifferentPort": false,
 	"stateFilePath": "../data/broadcast-state.json",
+	"ingestApiKey": "",
+	"ingestMaxBodyBytes": 2000000,
 	"pollIntervalMs": 500,
 	"sessionTokenTtlMs": 30000,
 	"maxConnectionsPerIp": 5,
