@@ -1,0 +1,15 @@
+{
+	"port": 8081,
+	"host": "127.0.0.1",
+	"allowedOrigins": [
+		"https://viewer.example.com"
+	],
+	"allowSameHostDifferentPort": false,
+	"stateFilePath": "../data/broadcast-state.json",
+	"pollIntervalMs": 500,
+	"sessionTokenTtlMs": 30000,
+	"maxConnectionsPerIp": 50,
+	"maxTotalConnections": 500,
+	"trustProxy": true,
+	"idleTimeoutMs": 3600000
+}

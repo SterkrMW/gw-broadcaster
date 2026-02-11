@@ -1,0 +1,20 @@
+viewer.example.com {
+	encode zstd gzip
+
+	# Static SPA files produced by `npm run build`
+	root * /var/www/gw-broadcast-viewer/dist
+	file_server
+
+	# Session bootstrap endpoint used by browser before websocket connect
+	handle_path /session-token {
+		reverse_proxy 127.0.0.1:8081
+	}
+
+	# Websocket endpoint used by viewer (`VITE_WS_URL=wss://viewer.example.com/ws`)
+	handle_path /ws* {
+		reverse_proxy 127.0.0.1:8081
+	}
+
+	# SPA fallback
+	try_files {path} /index.html
+}

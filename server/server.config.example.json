@@ -1,0 +1,15 @@
+{
+	"port": 8081,
+	"host": "0.0.0.0",
+	"allowedOrigins": [
+		"http://localhost:5173"
+	],
+	"allowSameHostDifferentPort": false,
+	"stateFilePath": "../data/broadcast-state.json",
+	"pollIntervalMs": 500,
+	"sessionTokenTtlMs": 30000,
+	"maxConnectionsPerIp": 5,
+	"maxTotalConnections": 50,
+	"trustProxy": false,
+	"idleTimeoutMs": 3600000
+}
