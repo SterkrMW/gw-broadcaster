@@ -76,12 +76,19 @@ interface ErrorPayload {
 // Load Config
 // ============================================================================
 
-const configPath = path.join(__serverDir, 'server.config.json');
-if (!fs.existsSync(configPath)) {
-	console.error(`Config file not found: ${configPath}`);
+const configPathCandidates = [
+	process.env.BROADCAST_CONFIG_PATH,
+	path.resolve(process.cwd(), 'server/server.config.json'),
+	path.resolve(__serverDir, 'server.config.json'),
+].filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+
+const configPath = configPathCandidates.find(candidate => fs.existsSync(candidate));
+if (!configPath) {
+	console.error(`Config file not found. Tried: ${configPathCandidates.join(', ')}`);
 	process.exit(1);
 }
 
+const configDir = path.dirname(configPath);
 const config: ServerConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 const sessionTokenTtlMs = Math.max(5000, config.sessionTokenTtlMs ?? 30_000);
 const ingestApiKey = config.ingestApiKey?.trim() || '';
@@ -92,7 +99,7 @@ const listenHost = config.host ?? '0.0.0.0';
 // State Management
 // ============================================================================
 
-const stateFilePath = path.resolve(__serverDir, config.stateFilePath);
+const stateFilePath = path.resolve(configDir, config.stateFilePath);
 const clients = new Map<WebSocket, ClientConnection>();
 const ipConnectionCounts = new Map<string, number>();
 const sessionTokens = new Map<string, SessionTokenState>();
@@ -580,6 +587,7 @@ httpServer.listen(config.port, listenHost);
 
 console.log(`Guild War Broadcast Server started on port ${config.port}`);
 console.log(`Listening host: ${listenHost}`);
+console.log(`Loaded config from: ${configPath}`);
 console.log(`Reading state from: ${stateFilePath}`);
 console.log(`Poll interval: ${config.pollIntervalMs}ms`);
 console.log(`Session token TTL: ${sessionTokenTtlMs}ms`);
