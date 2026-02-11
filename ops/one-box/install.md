@@ -93,6 +93,7 @@ sudo systemctl status caddy --no-pager
 Important:
 - Ensure `/session-token` and `/ws*` use `handle` (not `handle_path`) in Caddy.
 - `handle_path` strips the path prefix, which causes `/session-token` to proxy as `/` and break JSON session bootstrap.
+- Keep API/websocket handlers inside a `route { ... }` block before SPA fallback, so `/session-token` cannot be rewritten to `/index.html`.
 
 ## 6) Configure systemd service for broadcast server
 

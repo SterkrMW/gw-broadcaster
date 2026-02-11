@@ -1,21 +1,25 @@
 viewer.example.com {
 	encode zstd gzip
 
-	# Static SPA files produced by `npm run build`
-	root * /var/www/gw-broadcast-viewer/dist
-	file_server
+	# Preserve handler order explicitly so API/websocket routes never fall through
+	# to SPA static fallback.
+	route {
+		# Session bootstrap endpoint used by browser before websocket connect.
+		# Use `handle`, not `handle_path`, so upstream still receives `/session-token`.
+		handle /session-token {
+			reverse_proxy 127.0.0.1:8081
+		}
 
-	# Session bootstrap endpoint used by browser before websocket connect.
-	# Use `handle`, not `handle_path`, so upstream still receives `/session-token`.
-	handle /session-token {
-		reverse_proxy 127.0.0.1:8081
+		# Websocket endpoint used by viewer (`VITE_WS_URL=wss://viewer.example.com/ws`)
+		handle /ws* {
+			reverse_proxy 127.0.0.1:8081
+		}
+
+		# Static SPA files produced by `npm run build`
+		handle {
+			root * /var/www/gw-broadcast-viewer/dist
+			try_files {path} /index.html
+			file_server
+		}
 	}
-
-	# Websocket endpoint used by viewer (`VITE_WS_URL=wss://viewer.example.com/ws`)
-	handle /ws* {
-		reverse_proxy 127.0.0.1:8081
-	}
-
-	# SPA fallback
-	try_files {path} /index.html
 }
