@@ -245,6 +245,16 @@ function pollStateFile(): void {
 
 function getClientIp(req: IncomingMessage): string {
 	if (config.trustProxy) {
+		const cfConnectingIp = req.headers['cf-connecting-ip'];
+		if (typeof cfConnectingIp === 'string' && cfConnectingIp.trim() !== '') {
+			return cfConnectingIp.trim();
+		}
+
+		const xRealIp = req.headers['x-real-ip'];
+		if (typeof xRealIp === 'string' && xRealIp.trim() !== '') {
+			return xRealIp.trim();
+		}
+
 		const forwarded = req.headers['x-forwarded-for'];
 		if (typeof forwarded === 'string') {
 			return forwarded.split(',')[0].trim();
