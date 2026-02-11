@@ -377,8 +377,9 @@ httpServer.on('upgrade', (req, socket, head) => {
 		return;
 	}
 
-	// One-time token use prevents replay across additional connections.
-	sessionTokens.delete(sessionToken);
+	// Keep token valid until TTL expiry.
+	// Some proxies/browsers may perform retry behavior around websocket handshakes,
+	// and strict one-time consumption can invalidate legitimate follow-up attempts.
 
 	wss.handleUpgrade(req, socket, head, ws => {
 		wss.emit('connection', ws, req);
