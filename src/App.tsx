@@ -8,9 +8,21 @@ import type { BattlegroundState } from './types';
 import './App.css';
 
 // Configuration - in production, load from environment
-const WS_URL =
-  import.meta.env.VITE_WS_URL ||
-  `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:8081`;
+const WS_URL = (() => {
+  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  const hostname = window.location.hostname;
+  const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+
+  // Local dev convenience: connect directly to backend default port.
+  if (isLocalHost) {
+    return `${wsProtocol}://${hostname}:8081`;
+  }
+
+  // Production-safe fallback: route through reverse proxy path.
+  return `${wsProtocol}://${window.location.host}/ws`;
+})();
 const EMPTY_INSTANCES: BattlegroundState[] = [];
 
 
