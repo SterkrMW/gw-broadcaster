@@ -148,6 +148,47 @@ function isOriginAllowed(originHeader: string | undefined): boolean {
 	return false;
 }
 
+function extractHostname(value: string): string | null {
+	try {
+		// Parse host-like values (e.g. "live.osmw.net:443") safely.
+		const parsed = new URL(`http://${value}`);
+		return parsed.hostname.toLowerCase();
+	} catch {
+		return null;
+	}
+}
+
+function isHostAllowed(hostHeader: string | undefined): boolean {
+	if (config.allowedOrigins.length === 0) return true;
+	if (!hostHeader) return false;
+
+	const requestHost = extractHostname(hostHeader);
+	if (!requestHost) return false;
+
+	for (const allowedOrigin of config.allowedOrigins) {
+		try {
+			const allowedHost = new URL(allowedOrigin).hostname.toLowerCase();
+			if (allowedHost === requestHost) {
+				return true;
+			}
+		} catch {
+			// Ignore malformed allow-list entries
+		}
+	}
+
+	return false;
+}
+
+function isSessionRequestAllowed(req: IncomingMessage, originHeader: string | undefined): boolean {
+	if (isOriginAllowed(originHeader)) return true;
+	// Browsers may omit `Origin` for same-origin GET requests.
+	if (!originHeader) {
+		const hostHeader = typeof req.headers.host === 'string' ? req.headers.host : undefined;
+		return isHostAllowed(hostHeader);
+	}
+	return false;
+}
+
 function setCorsHeaders(res: ServerResponse, originHeader: string | undefined): void {
 	if (!originHeader || !isOriginAllowed(originHeader)) return;
 	res.setHeader('Access-Control-Allow-Origin', originHeader);
@@ -229,7 +270,7 @@ const httpServer = createServer((req, res) => {
 
 	const requestUrl = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
 	if (method === 'GET' && requestUrl.pathname === '/session-token') {
-		if (!isOriginAllowed(originHeader)) {
+		if (!isSessionRequestAllowed(req, originHeader)) {
 			const response: ErrorPayload = { error: 'Origin not allowed' };
 			sendJson(res, 403, response);
 			return;
