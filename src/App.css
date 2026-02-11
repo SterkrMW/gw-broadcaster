@@ -517,8 +517,17 @@ body {
 }
 
 @media (max-width: 768px) and (orientation: portrait) {
+	.center-info {
+		padding-inline: 0.2rem;
+	}
+
+	.round-name {
+		display: none;
+	}
+
 	.timer {
-		padding-inline: 0.45rem;
+		font-size: 1.05rem;
+		line-height: 1;
 	}
 }
 
