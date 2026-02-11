@@ -331,6 +331,86 @@ body {
 	background: transparent;
 }
 
+/* Live action feed */
+.action-feed {
+	position: absolute;
+	right: 1rem;
+	bottom: 1rem;
+	z-index: 30;
+	width: min(420px, calc(100% - 2rem));
+	max-height: min(45vh, 380px);
+	display: flex;
+	flex-direction: column;
+	border: 1px solid rgba(255, 255, 255, 0.15);
+	border-radius: var(--border-radius);
+	background: rgba(10, 15, 22, 0.78);
+	backdrop-filter: blur(8px);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+	overflow: hidden;
+}
+
+.action-feed-header {
+	padding: 0.55rem 0.75rem;
+	font-size: 0.72rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	font-weight: 700;
+	color: var(--text-accent);
+	background: rgba(0, 188, 212, 0.12);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.action-feed-list {
+	padding: 0.45rem 0.65rem 0.65rem;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+}
+
+.action-feed-item {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.5rem;
+	font-size: 0.79rem;
+	line-height: 1.25;
+	padding: 0.3rem 0.25rem;
+	border-left: 2px solid transparent;
+}
+
+.action-feed-item.score {
+	border-left-color: #f59e0b;
+}
+
+.action-feed-item.combat {
+	border-left-color: #ef4444;
+}
+
+.action-feed-item.objective {
+	border-left-color: #22c55e;
+}
+
+.action-feed-item.system {
+	border-left-color: #60a5fa;
+}
+
+.action-feed-time {
+	color: var(--text-secondary);
+	font-variant-numeric: tabular-nums;
+	flex: 0 0 auto;
+}
+
+.action-feed-text {
+	color: var(--text-primary);
+}
+
+.action-feed-empty {
+	font-size: 0.78rem;
+	color: var(--text-secondary);
+	font-style: italic;
+	padding: 0.35rem 0.15rem;
+}
+
 /* No Battles State */
 .no-battles {
 	display: flex;
@@ -484,6 +564,13 @@ body {
 		border: none;
 	}
 
+	.action-feed {
+		right: 0.5rem;
+		bottom: 0.5rem;
+		max-height: min(52vh, 280px);
+		width: min(360px, calc(100% - 1rem));
+	}
+
 	.scoreboard {
 		/* Switch to relative positioning (docked) */
         position: relative;
@@ -530,6 +617,12 @@ body {
     .app-footer {
         display: none;
     }
+}
+
+@media (max-width: 768px) {
+	.action-feed {
+		display: none;
+	}
 }
 
 /* =========================================================================

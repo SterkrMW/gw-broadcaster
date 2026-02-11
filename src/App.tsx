@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
+import { useActionFeed } from './hooks/useActionFeed';
 import { BattleMap } from './components/BattleMap';
 import { ScoreBoard } from './components/ScoreBoard';
 import { InstanceSelector } from './components/InstanceSelector';
 import { BracketView } from './components/BracketView';
+import { ActionFeed } from './components/ActionFeed';
 import type { BattlegroundState } from './types';
 import './App.css';
 
@@ -47,6 +49,7 @@ function App() {
     [instances, effectiveRoundId]
   );
   const isLiveView = Boolean(selectedInstance);
+  const actionFeedEntries = useActionFeed(selectedInstance, { maxEntries: 16 });
 
   // Map dimensions from server
   const mapWidth = welcome?.mapDimensions.width ?? 4800;
@@ -97,6 +100,7 @@ function App() {
                   mapHeight={mapHeight}
                 />
               </div>
+              <ActionFeed entries={actionFeedEntries} />
             </div>
           </>
         ) : lastState?.bracket ? (
